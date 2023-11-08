@@ -59,28 +59,38 @@ function searchPhoto()
 
 function uploadPhoto()
 {
-   var file_data = $("#file_path").prop("files")[0];   // Getting the properties of file from file field
-	 var form_data = new FormData();                  // Creating object of FormData class
-	 form_data.append("file", file_data)
+	var filePath = (document.getElementById('file_path').value).split("\\");
+    var fileName = filePath[filePath.length - 1];
+    var fileExt = fileName.split(".").pop();
 
-  //  var apigClient = apigClientFactory.newClient({
-  //                    apiKey: "swsfM8p6i71jP3kgUEwyB3DzE8xOQSjR6YCRsCXo"
-  //       });
+    console.log(fileName);
 
-   var data = document.getElementById('file_path').value;
-   var x = data.split("\\")
-   var filename = x[x.length-1]
-   console.log(filename)
+    var file = document.getElementById("file_path").files[0];
+    file.constructor = () => file;
 
-   var body = {};
-   var params = {"key" : filename , "bucket" : "b2-store-images" , "Content-Type" : "image/jpg"};
-   var additionalParams = {};
-  
-   sdk.bucketKeyPut(params, body , additionalParams).then(function(res){
-     console.log(res)
-   }).catch( function(result){
+    console.log(file.type);
 
-   });
-return false;
+    let myHeaders = new Headers()
+    let requestOptions = {
+            // crossDomain: true,
+            method: 'PUT',
+            headers: {
+                "Content-Type": file.type,
+                "x-api-key": "D6lHdlUSxTagnzPiqKgsF2UtmFEZIfKs19TSxNVJ"
+            },
+            // data: encode(file),
+            body: file
+        };
+    
+        fetch("https://x7e7p521wg.execute-api.us-east-1.amazonaws.com/cors3/b2-store-images/" + fileName.toString(), requestOptions)
+            .then(response => response.text())
+            .then(result => {
+              console.log(result)
+
+          })
+          .catch(error => console.log('error', error));
+
+
+  document.getElementById('file_path').value = "";
 
 }

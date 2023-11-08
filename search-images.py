@@ -51,11 +51,12 @@ def lambda_handler(event, context):
     
     keywords = send_msg_toLex(msg_from_user)
     print(keywords)
+    results = []
     print("#SEARCH OPENSEARCH")
     for keyword in keywords:
-        print(keyword)
-        results = query(keyword)
-    # print('Results from opensearch : ' ,results)
+        keyword_results = query(keyword)  # Call the query function for the current keyword
+        results.extend(keyword_results)
+    print('Results from opensearch : ' ,results)
     images = []
     responseArray = []
     output = results

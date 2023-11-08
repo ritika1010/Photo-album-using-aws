@@ -2,19 +2,13 @@ import json
 import boto3
 from botocore.exceptions import ClientError
 from boto3.dynamodb.conditions import Attr
-
-
 import os
-
-import boto3
 from opensearchpy import OpenSearch, RequestsHttpConnection
 from requests_aws4auth import AWS4Auth
 
 REGION = 'us-east-1'
 HOST = 'search-images-s5gkffqwg5yhsfednmdbnxtkze.us-east-1.es.amazonaws.com'
 INDEX = 'images'
-
-queue_url = 'https://sqs.us-east-1.amazonaws.com/252549629269/UserPreferences'
 
 s3 = boto3.client('s3')
 client = boto3.client('lexv2-runtime')
@@ -48,7 +42,7 @@ def send_msg_toLex(msg_from_user):
 
 def lambda_handler(event, context):
     
-    print ("EVENT ___" , event["queryStringParameters"])
+    print ("EVENT ___" , event)
     print ("CONTEXT ___" , context)
     
     msg_from_user = event['queryStringParameters']['q']
@@ -63,20 +57,45 @@ def lambda_handler(event, context):
         results = query(keyword)
     # print('Results from opensearch : ' ,results)
     images = []
-    if results:
-        for r in results:
-            images.append(get_image_from_s3(r["objectKey"],r["bucket"]))
-            # print("next image")
-        print(images)
+    responseArray = []
+    output = results
+    if output is not None:
+        for i in output:
+            # print("i is "+str(i))
+            json_object = {}
+            s3_object_url = s3.generate_presigned_url(
+            'get_object',
+            Params={'Bucket': i["bucket"], 'Key': i["objectKey"]},
+            ExpiresIn=3600  # URL expiration time in seconds
+            ) 
+            print("S3 URL " , s3_object_url)
+            # json_object['url'] = "https://s3.amazonaws.com/" + i["bucket"] + "/" + i["objectKey"]
+            json_object['url'] = s3_object_url
+            json_object['labels'] = i["labels"]
+            responseArray.append(json_object)
+            
+            
+                
+        print ('Response array ---- : ' , responseArray)
+    # if results:
+    #     for r in results:
+    #         images.append(get_image_from_s3(r["objectKey"],r["bucket"]))
+    #         # print("next image")
+    #     print(images)
+        
     else:
         print("No search result")
-        
+    
     return {
-        'statusCode': 200,
-        'response of images ' :{
-        "name": results
+          "statusCode": 200,
+          "headers": {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin" : "*"
+          },
+          "body": json.dumps({
+                "results":responseArray
+                })
         }
-    }
     
 def get_image_from_s3(key,bucket):
     

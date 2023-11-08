@@ -21,7 +21,7 @@ def lambda_handler(event, context):
         print("CONTENT TYPE: " + response['ContentType'])
         
         #If image is uploaded
-        if "image" in  response['ContentType']:
+        if "image" in response['ContentType']:
             
             #Image sent to Rekognition to extract labels
             image = response['Body'].read()

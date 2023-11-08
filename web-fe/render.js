@@ -1,10 +1,10 @@
 var data = {
   "images": [{
-    "bannerImg1": "https://s3.us-east-2.amazonaws.com/chatbothw1/ncik_gupta1.jpg"
+    "bannerImg1": "https://b2-store-images.s3.amazonaws.com/birdpic"
   },
-  {"bannerImg1" : "https://s3.us-east-2.amazonaws.com/chatbothw1/nick_gupta2.jpeg"
+  {"bannerImg1" : "https://b2-store-images.s3.amazonaws.com/birdpic"
 },
-{"bannerImg1" : "https://s3.us-east-2.amazonaws.com/chatbothw1/nick_gupta3.jpeg"
+{"bannerImg1" : "https://b2-store-images.s3.amazonaws.com/birdpic"
 }]
 };
 
@@ -14,9 +14,12 @@ document.getElementById("displaytext").style.display = "none";
 function searchPhoto()
 {
 
-  var apigClient = apigClientFactory.newClient({
-                     apiKey: "swsfM8p6i71jP3kgUEwyB3DzE8xOQSjR6YCRsCXo"
-        });
+  console.log("INSIDE SEARCH PHOTO ----");
+  
+  // var apigClient = apigClientFactory.newClient({
+  //                    apiKey: "swsfM8p6i71jP3kgUEwyB3DzE8xOQSjR6YCRsCXo"
+  //       });
+
 
     var user_message = document.getElementById('note-textarea').value;
 
@@ -24,17 +27,19 @@ function searchPhoto()
     var params = {q : user_message};
     var additionalParams = {};
 
-    apigClient.searchGet(params, body , additionalParams).then(function(res){
+    sdk.searchGet(params, body , additionalParams).then(function(res){
+        console.log("INSIDE GETT ----");
         var data = {}
         var data_array = []
         resp_data  = res.data
-        resp_data.forEach(function(obj) {var json = {};
-                  json["bannerImg1"] = obj["imageUrl"];
+        console.log("RESPONSE ----" + res.data);
+        resp_data.results.forEach(function(obj) {var json = {};
+                  json["bannerImg1"] = obj["url"];
                  data_array.push(json) }
                 );
 
         data["images"] = data_array;
-        console.log(data);
+        console.log("CONVERTED RESPONSE --- " + data);
 
         data.images.forEach( function(obj) {
             var img = new Image();
@@ -58,9 +63,9 @@ function uploadPhoto()
 	 var form_data = new FormData();                  // Creating object of FormData class
 	 form_data.append("file", file_data)
 
-   var apigClient = apigClientFactory.newClient({
-                     apiKey: "swsfM8p6i71jP3kgUEwyB3DzE8xOQSjR6YCRsCXo"
-        });
+  //  var apigClient = apigClientFactory.newClient({
+  //                    apiKey: "swsfM8p6i71jP3kgUEwyB3DzE8xOQSjR6YCRsCXo"
+  //       });
 
    var data = document.getElementById('file_path').value;
    var x = data.split("\\")
@@ -71,7 +76,7 @@ function uploadPhoto()
    var params = {"key" : filename , "bucket" : "b2-store-images" , "Content-Type" : "image/jpg"};
    var additionalParams = {};
   
-   apigClient.bucketKeyPut(params, body , additionalParams).then(function(res){
+   sdk.bucketKeyPut(params, body , additionalParams).then(function(res){
      console.log(res)
    }).catch( function(result){
 

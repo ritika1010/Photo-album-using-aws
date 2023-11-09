@@ -54,7 +54,8 @@ def lambda_handler(event, context):
     results = []
     print("#SEARCH OPENSEARCH")
     for keyword in keywords:
-        keyword_results = query(keyword)  # Call the query function for the current keyword
+        print(keyword,"-->", get_singular(keyword))
+        keyword_results = query(get_singular(keyword))  # Call the query function for the current keyword
         results.extend(keyword_results)
     print('Results from opensearch : ' ,results)
     images = []
@@ -150,3 +151,26 @@ def get_awsauth(region, service):
                     region,
                     service,
                     session_token=cred.token)
+                    
+                    
+PLURAL_TO_SINGULAR_SUFFIX_MAPPING = [
+    ('people', 'person'),
+    ('men', 'man'),
+    ('women', 'woman'),
+    ('menus', 'menu'),
+    ('us', 'us'),
+    ('ss', 'ss'),
+    ('is', 'is'),
+    ("'s", "'s"),
+    ('ies', 'y'),
+    ('es', 'e'),
+    ('s', '')
+]
+
+def get_singular(word):
+    if word is None or word=="":
+        return ""
+    for suffix,singular_suffix in PLURAL_TO_SINGULAR_SUFFIX_MAPPING:
+        if word.endswith(suffix):
+            return word[:-len(suffix)] + singular_suffix
+    return word

@@ -20,6 +20,8 @@ def lambda_handler(event, context):
         print("EVENT ----", response)
         print("CONTENT TYPE: " + response['ContentType'])
         
+        # print(response['x-amz-meta-customlabels'])
+        
         #If image is uploaded
         if "image" in response['ContentType']:
             
@@ -28,11 +30,17 @@ def lambda_handler(event, context):
             response_recognition = rekognition.detect_labels(Image={'Bytes': image})
             labels = [label['Name'] for label in response_recognition['Labels']]
             print("Labels found:", labels)
+            # labels.append(response['x-amz-meta-customlabels'])
             
             #Image has Metadata
             s3_object_metadata = s3.head_object(Bucket=bucket, Key=key)
             if s3_object_metadata["Metadata"]:
                 print("Metadata  contents found:", s3_object_metadata["Metadata"])
+                metadata = s3_object_metadata["Metadata"]
+                custom_labels = metadata.get("customlabels")
+                if custom_labels is not None:
+                    print(custom_labels) 
+                    labels.append(custom_labels)
             else:
                 print("metadata empty")
                 
@@ -55,6 +63,7 @@ def lambda_handler(event, context):
             data["bucket"] = bucket
             data["createdTimestamp"] = event['Records'][0]['eventTime']
             data["labels"] = labels
+            print(data)
             query(data)
         return {
         'statusCode': 200,

@@ -56,7 +56,16 @@ def lambda_handler(event, context):
             data["createdTimestamp"] = event['Records'][0]['eventTime']
             data["labels"] = labels
             query(data)
-        return data
+        return {
+        'statusCode': 200,
+        'headers':{
+            'Access-Control-Allow-Origin':'*',
+            'Access-Control-Allow-Credentials':True,
+            'Access-Control-Request-Headers':'POST, PUT, GET, OPTIONS',
+            'Access-Control-Allow-Headers':'*'
+            
+            },
+        }
     except Exception as e:
         print(e)
         print('Error getting object {} from bucket {}. Make sure they exist and your bucket is in the same region as this function.'.format(key, bucket))

@@ -87,7 +87,7 @@ function uploadPhoto()
             body: file
         };
     
-        fetch("https://x7e7p521wg.execute-api.us-east-1.amazonaws.com/final/b2-store-images/" + fileName.toString(), requestOptions)
+        fetch("https://x7e7p521wg.execute-api.us-east-1.amazonaws.com/cors3/b2-store-images/" + fileName.toString(), requestOptions)
             .then(response => response.text())
             .then(result => {
               console.log(result)

@@ -1,0 +1,301 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Parameters:
+  S3BucketName:
+    Type: String
+    Default: photos-bucket-v1
+
+Resources:
+
+  AssetsBucket:
+    Type: AWS::S3::Bucket
+    DependsOn: Lambda1InvokePermission
+    Properties:
+      BucketName: !Ref S3BucketName
+      PublicAccessBlockConfiguration:
+          BlockPublicAcls: false
+      OwnershipControls:
+          Rules:
+            - ObjectOwnership: ObjectWriter
+      NotificationConfiguration:
+        LambdaConfigurations:
+          - Event: s3:ObjectCreated:Put
+            Function: !GetAtt [ Lambda1, Arn]
+
+  ClientBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      PublicAccessBlockConfiguration:
+          BlockPublicAcls: false
+      OwnershipControls:
+          Rules:
+            - ObjectOwnership: ObjectWriter
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: index.html
+
+  BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      PolicyDocument:
+        Id: PublicWebsitePolicy
+        Version: 2012-10-17
+        Statement:
+          - Sid: PublicReadForGetBucketObjects
+            Effect: Allow
+            Principal: '*'
+            Action: 's3:GetObject'
+            Resource: !Join
+              - ''
+              - - 'arn:aws:s3:::'
+                - !Ref ClientBucket
+                - /*
+      Bucket: !Ref ClientBucket
+
+  AssetsBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      PolicyDocument: 
+        Statement:
+          - Sid: PublicReadGetObject
+            Effect: Allow
+            Principal: '*'
+            Action: 's3:GetObject'
+            Resource: !Sub 'arn:aws:s3:::${S3BucketName}/*'
+          - Sid: ListObjectsInBucket
+            Effect: Allow
+            Principal: '*'
+            Action: 's3:ListBucket'
+            Resource: !Sub 'arn:aws:s3:::${S3BucketName}'
+          - Sid: AllObjectActions
+            Effect: Allow
+            Principal: '*'
+            Action: 's3:*Object'
+            Resource: !Sub 'arn:aws:s3:::${S3BucketName}/*'
+      Bucket: !Ref AssetsBucket
+
+  MyRoleLambdas1:
+    Type: AWS::IAM::Role
+    Properties: 
+      AssumeRolePolicyDocument: {
+        "Version": "2012-10-17",
+        "Statement": [
+            {
+                "Effect": "Allow",
+                "Principal": {
+                    "Service": "lambda.amazonaws.com"
+                },
+                "Action": "sts:AssumeRole"
+            }
+        ]
+      }
+      ManagedPolicyArns: [
+                "arn:aws:iam::aws:policy/AmazonS3FullAccess",
+                "arn:aws:iam::aws:policy/AmazonRekognitionFullAccess",
+                "arn:aws:iam::aws:policy/AmazonOpenSearchServiceFullAccess"
+            ]
+      Path: "/"
+      Policies: 
+        - PolicyName: "PolicyIp1"
+          PolicyDocument: {
+          "Version": "2012-10-17",
+          "Statement": [
+              {
+                  "Effect": "Allow",
+                  "Action": "logs:CreateLogGroup",
+                  "Resource": "arn:aws:logs:us-east-1:112295921782:*"
+              },
+              {
+                  "Effect": "Allow",
+                  "Action": [
+                      "logs:CreateLogStream",
+                      "logs:PutLogEvents"
+                  ],
+                  "Resource": [
+                      "arn:aws:logs:us-east-1:112295921782:log-group:/aws/lambda/index-photos-v1:*"
+                  ]
+              },
+              {
+                  "Effect": "Allow",
+                  "Action": [
+                      "logs:CreateLogStream",
+                      "logs:PutLogEvents"
+                  ],
+                  "Resource": [
+                      "arn:aws:logs:us-east-1:112295921782:log-group:/aws/lambda/index-photos-v1:*"
+                  ]
+              },
+              {
+                  "Effect": "Allow",
+                  "Action": [
+                      "s3:GetObject"
+                  ],
+                  "Resource": "arn:aws:s3:::*/*"
+              },
+              {
+                  "Effect": "Allow",
+                  "Action": "s3:PutBucketPolicy",
+                  "Resource": "arn:aws:s3:::*/*"
+              }
+          ]
+          }
+      RoleName: lf1-role-v1
+     
+  MyRoleLambdas2:    
+    Type: AWS::IAM::Role
+    Properties: 
+      AssumeRolePolicyDocument: {
+        "Version": "2012-10-17",
+        "Statement": [
+            {
+                "Effect": "Allow",
+                "Principal": {
+                    "Service": "lambda.amazonaws.com"
+                },
+                "Action": "sts:AssumeRole"
+            }
+        ]
+      }
+      ManagedPolicyArns: [
+                "arn:aws:iam::aws:policy/AmazonLexFullAccess",
+                "arn:aws:iam::aws:policy/AmazonOpenSearchServiceFullAccess"
+            ]
+      Path: "/"
+      Policies: 
+        - PolicyName: "Splex1"
+          PolicyDocument: {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                  "Sid": "VisualEditor0",
+                  "Effect": "Allow",
+                  "Action": [
+                    "lex:CreateUploadUrl",
+                    "lex:ListBuiltInSlotTypes",
+                    "lex:ListBots",
+                    "lex:ListBuiltInIntents",
+                    "lex:ListImports",
+                    "lex:ListExports"
+                ],
+                "Resource": "*"
+              },
+              {
+                "Sid": "VisualEditor1",
+                "Effect": "Allow",
+                "Action": "lex:*",
+                "Resource": [
+                    "arn:aws:lex:us-east-1:112295921782:bot-alias/ZF3N9OLCQF/BRVKTMYOOF",
+                    "arn:aws:lex:us-east-1:112295921782:bot/ZF3N9OLCQF"
+                ]
+              },
+            ]
+          }  
+        - PolicyName: "SpDefault1"
+          PolicyDocument: {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": "logs:CreateLogGroup",
+                  "Resource": "arn:aws:logs:us-east-1:112295921782:*"
+              },
+              {
+                "Effect": "Allow",
+                "Action": [
+                    "logs:CreateLogStream",
+                    "logs:PutLogEvents"
+                ],
+                "Resource": [
+                  "arn:aws:logs:us-east-1:112295921782:log-group:/aws/lambda/search-photos-v1:*"
+                ]
+              },
+              {
+                "Effect": "Allow",
+                "Action": [
+                    "logs:CreateLogStream",
+                    "logs:PutLogEvents"
+                ],
+                "Resource": [
+                  "arn:aws:logs:us-east-1:112295921782:log-group:/aws/lambda/search-photos-v1:*"
+                ]
+              }
+            ]
+          }     
+      RoleName: lf2-role-v2
+
+  Lambda1:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        ZipFile: |
+          exports.handler = function(event){
+              console.log(JSON.stringify(event, null, 2))
+              const response = {
+                  statusCode: 200,
+                  body: JSON.stringify('Hello again from Lambda!')
+              }
+              return response
+          }
+      Description: Lambda function Index CF
+      MemorySize: 128
+      Environment:
+        Variables:
+          REGION: us-east-1
+      Handler: lambda_function.lambda_handler
+      Role: !GetAtt [MyRoleLambdas1, Arn]
+      Timeout: 30
+      Runtime: nodejs18.x
+      FunctionName: index-photos-v1
+
+  Lambda2:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        ZipFile: |
+          exports.handler = function(event){
+              console.log(JSON.stringify(event, null, 2))
+              const response = {
+                  statusCode: 200,
+                  body: JSON.stringify('Hello again from Lambda!')
+              }
+              return response
+          }   
+      MemorySize: 128
+      Environment:
+        Variables:
+          REGION: us-east-1
+      Handler: lambda_function.lambda_handler
+      Role: !GetAtt [MyRoleLambdas2, Arn]
+      Timeout: 30
+      Runtime: nodejs18.x
+      FunctionName: search-photos-v1
+
+  Lambda1InvokePermission:
+    Type: AWS::Lambda::Permission
+    DependsOn: Lambda1
+    Properties: 
+      FunctionName:
+        Fn::GetAtt:
+          - Lambda1
+          - Arn
+      Action: lambda:InvokeFunction
+      Principal: s3.amazonaws.com
+      SourceArn:
+        Fn::Sub: arn:aws:s3:::${S3BucketName}
+
+Outputs:
+  WebsiteURL:
+    Value: !GetAtt
+      - ClientBucket
+      - WebsiteURL
+    Description: URL for website hosted on S3
+  S3BucketSecureURL:
+    Value: !Join
+      - ''
+      - - 'https://'
+        - !GetAtt
+          - ClientBucket
+          - DomainName
+    Description: Name of S3 bucket to hold website content          
+
+

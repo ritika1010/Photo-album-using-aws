@@ -3,7 +3,14 @@ AWSTemplateFormatVersion: 2010-09-09
 Parameters:
   S3BucketName:
     Type: String
-    Default: photos-bucket-v10
+    Default: photos-bucket-v12
+  apiGatewayName:
+    Type: String
+    Default: my-api
+  apiGatewayStageName:
+    Type: String
+    AllowedPattern: '[a-z0-9]+'
+    Default: final
 
 Resources:
 
@@ -27,7 +34,7 @@ Resources:
     DeletionPolicy: Delete
     Properties:
       BinaryMediaTypes: ["*/*"]
-      Name: "Photo Album Gateway -v10"
+      Name: !Ref apiGatewayName
       Description: "AI Photo Search application, built during the Cloud and Big Data course at Columbia University."
       Body:
         swagger: "2.0"
@@ -36,8 +43,6 @@ Resources:
             \ at Columbia University."
           version: "1.0.0"
           title: "AI Photo Search"
-        host: "x7e7p521wg.execute-api.us-east-1.amazonaws.com"
-        basePath: "/final"
         schemes:
         - "https"
         paths:
@@ -69,7 +74,8 @@ Resources:
                     $ref: "#/definitions/Error"
               x-amazon-apigateway-integration:
                 httpMethod: "POST"
-                uri: "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:007091449980:function:search-photos-v10/invocations"
+                credentials: !GetAtt InvokeLambdaRole.Arn
+                uri: "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:007091449980:function:search-photos-v12/invocations"
                 responses:
                   default:
                     statusCode: "200"
@@ -96,7 +102,8 @@ Resources:
                       type: "string"
               x-amazon-apigateway-integration:
                 httpMethod: "POST"
-                uri: "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:007091449980:function:search-photos-v10/invocations"
+                credentials: !GetAtt InvokeLambdaRole.Arn
+                uri: "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:007091449980:function:search-photos-v12/invocations"
                 responses:
                   default:
                     statusCode: "200"
@@ -132,6 +139,7 @@ Resources:
               - api_key: []
               x-amazon-apigateway-integration:
                 httpMethod: "PUT"
+                credentials: !GetAtt ApiGatewayS3ProxyRole.Arn
                 uri: "arn:aws:apigateway:us-east-1:s3:path/{bucket}/{key}"
                 responses:
                   default:
@@ -227,7 +235,7 @@ Resources:
   ESInstance:
     Type: AWS::OpenSearchService::Domain
     Properties:
-      DomainName: photos-v10
+      DomainName: photos-v12
       ClusterConfig:
         InstanceType: t3.small.search
         InstanceCount: 1
@@ -251,7 +259,7 @@ Resources:
                 "indices:data/write/update",
                 "indices:data/rad/search"
               ],
-              "Resource": "arn:aws:es:us-east-1:007091449980:domain/photos-v10/*"
+              "Resource": "arn:aws:es:us-east-1:007091449980:domain/photos-v12/*"
               # # "Resource": "arn:aws:es:us-east-1:112295921782:domain/photos-cf/*"
               # "Resource" : "arn:aws:es:${self:provider.region}:${AWS::AccountId}:domain/photos-cf-7${self:provider.stage}/*"
 
@@ -388,7 +396,7 @@ Resources:
                       "logs:PutLogEvents"
                   ],
                   "Resource": [
-                      "arn:aws:logs:us-east-1:007091449980:log-group:/aws/lambda/index-photos-v10:*"
+                      "arn:aws:logs:us-east-1:007091449980:log-group:/aws/lambda/index-photos-v12:*"
                   ]
               },
               {
@@ -398,7 +406,7 @@ Resources:
                       "logs:PutLogEvents"
                   ],
                   "Resource": [
-                      "arn:aws:logs:us-east-1:007091449980:log-group:/aws/lambda/index-photos-v10:*"
+                      "arn:aws:logs:us-east-1:007091449980:log-group:/aws/lambda/index-photos-v12:*"
                   ]
               },
               {
@@ -424,7 +432,7 @@ Resources:
               }
           ]
           }
-      RoleName: lf1-role-v10
+      RoleName: lf1-role-v12
      
   MyRoleLambdas2:    
     Type: AWS::IAM::Role
@@ -492,7 +500,7 @@ Resources:
                     "logs:PutLogEvents"
                 ],
                 "Resource": [
-                  "arn:aws:logs:us-east-1:007091449980:log-group:/aws/lambda/search-photos-v10:*"
+                  "arn:aws:logs:us-east-1:007091449980:log-group:/aws/lambda/search-photos-v12:*"
                 ]
               },
               {
@@ -502,7 +510,7 @@ Resources:
                     "logs:PutLogEvents"
                 ],
                 "Resource": [
-                  "arn:aws:logs:us-east-1:007091449980:log-group:/aws/lambda/search-photos-v10:*"
+                  "arn:aws:logs:us-east-1:007091449980:log-group:/aws/lambda/search-photos-v12:*"
                 ]
               },
               {
@@ -516,7 +524,7 @@ Resources:
               }
             ]
           }     
-      RoleName: lf2-role-v10
+      RoleName: lf2-role-v12
 
   Lambda1:
     Type: AWS::Lambda::Function
@@ -541,7 +549,7 @@ Resources:
       Role: !GetAtt [MyRoleLambdas1, Arn]
       Timeout: 30
       Runtime: python3.9
-      FunctionName: index-photos-v10
+      FunctionName: index-photos-v12
 
   Lambda2:
     Type: AWS::Lambda::Function
@@ -565,7 +573,7 @@ Resources:
       Role: !GetAtt [MyRoleLambdas2, Arn]
       Timeout: 30
       Runtime: python3.9
-      FunctionName: search-photos-v10
+      FunctionName: search-photos-v12
 
   Lambda1InvokePermission:
     Type: AWS::Lambda::Permission
@@ -580,18 +588,53 @@ Resources:
       SourceArn:
         Fn::Sub: arn:aws:s3:::${S3BucketName}
   
-  ConfigLambdaPermission:
-    Type: "AWS::Lambda::Permission"
-    DependsOn: Lambda1
+  InvokeLambdaRole:
+    Type: AWS::IAM::Role
     Properties:
-      FunctionName:
-        Fn::GetAtt:
-          - Lambda1
-          - Arn
-      Action: lambda:InvokeFunction
-      Principal: apigateway.amazonaws.com
-      SourceArn:
-        Fn::Sub: arn:aws:apigateway:::${RestApiGatewayOfSmartPhotoAlbum}
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - apigateway.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: lambda
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource:
+                  - !GetAtt Lambda2.Arn
+
+  
+  ApiGatewayS3ProxyRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - apigateway.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: s3
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                Resource:
+                  - !Sub 'arn:aws:s3:::${S3BucketName}'
+                  - !Sub 'arn:aws:s3:::${S3BucketName}/*'
 
 Outputs:
   WebsiteURL:
@@ -606,6 +649,8 @@ Outputs:
         - !GetAtt
           - ClientBucket
           - DomainName
-    Description: Name of S3 bucket to hold website content          
+    Description: Name of S3 bucket to hold website content   
+  apiGatewayInvokeURL:
+    Value: !Sub https://${RestApiGatewayOfSmartPhotoAlbum}.execute-api.${AWS::Region}.amazonaws.com/${apiGatewayStageName}       
 
 

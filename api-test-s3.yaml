@@ -1,0 +1,119 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Parameters:
+  ApiGatewayStack:
+    Description: The stack where the api gateway rest api is defined
+    Type: String
+    Default: s3-apigw-app
+  EventBucket:
+    Type: String
+    Default: photos-bucket-v10
+  CorsAllowOrigin:
+    Type: String
+    Default: '*'
+
+Resources:
+
+  MaatResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId:
+        Fn::ImportValue: !Sub ${ApiGatewayStack}::AppApiGw
+      ParentId:
+        Fn::ImportValue: !Sub ${ApiGatewayStack}::AppApiGwRootResourceId
+      PathPart: 'maat'
+  MaatInputResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId:
+        Fn::ImportValue: !Sub ${ApiGatewayStack}::AppApiGw
+      ParentId:
+        Ref: WssiResource
+      PathPart: 'input'
+
+  MaatObjectPostRequest:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: POST
+      RestApiId:
+        Fn::ImportValue: !Sub ${ApiGatewayStack}::AppApiGw
+      ResourceId:
+        Ref: MaatInputResource
+      Integration:
+        Credentials: !GetAtt ApiGatewayS3ProxyRole.Arn
+        IntegrationHttpMethod: PUT
+        PassthroughBehavior: WHEN_NO_MATCH
+        RequestParameters:
+          integration.request.path.requestId: context.requestId
+          integration.request.header.x-amz-server-side-encryption: "'AES256'"
+        Type: AWS
+        Uri: !Sub arn:aws:apigateway:${AWS::Region}:s3:path/${EventBucket}/input/{requestId}
+        IntegrationResponses:
+          - StatusCode: '201'
+            ResponseParameters:
+                method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+                method.response.header.Access-Control-Allow-Methods: "'GET,POST,OPTIONS'"
+                method.response.header.Access-Control-Allow-Origin: !Sub "'${CorsAllowOrigin}'"
+            ResponseTemplates:
+                application/json: ''
+        MethodResponses:
+            - StatusCode: '201'
+              ResponseParameters:
+                  method.response.header.Access-Control-Allow-Headers: true
+                  method.response.header.Access-Control-Allow-Methods: true
+                  method.response.header.Access-Control-Allow-Origin: true
+
+  MaatObjectOptionsRequest:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: OPTIONS
+      RestApiId:
+        Fn::ImportValue: !Sub ${ApiGatewayStack}::AppApiGw
+      ResourceId:
+        Ref: MaatResource
+      Integration:
+        IntegrationResponses:
+          - StatusCode: '200'
+            ResponseParameters:
+                method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+                method.response.header.Access-Control-Allow-Methods: "'GET,POST,OPTIONS'"
+                method.response.header.Access-Control-Allow-Origin: !Sub "'${CorsAllowOrigin}'"
+            ResponseTemplates:
+                application/json: ''
+        PassthroughBehavior: NEVER
+        Type: MOCK
+        RequestTemplates:
+            application/json: '{"statusCode": 200}'
+      MethodResponses:
+        - StatusCode: '200'
+          ResponseModels:
+              application/json: Empty
+          ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: true
+              method.response.header.Access-Control-Allow-Methods: true
+              method.response.header.Access-Control-Allow-Origin: true
+
+  ApiGatewayS3ProxyRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - apigateway.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: s3
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                Resource:
+                  - !Sub 'arn:aws:s3:::${EventBucket}'
+                  - !Sub 'arn:aws:s3:::${EventBucket}/*'

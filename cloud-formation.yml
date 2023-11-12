@@ -3,7 +3,7 @@ AWSTemplateFormatVersion: 2010-09-09
 Parameters:
   S3BucketName:
     Type: String
-    Default: photos-bucket-v1
+    Default: photos-bucket-v7
 
 Resources:
 
@@ -12,6 +12,11 @@ Resources:
     DependsOn: Lambda1InvokePermission
     Properties:
       BucketName: !Ref S3BucketName
+      PublicAccessBlockConfiguration:
+          BlockPublicAcls: false
+      OwnershipControls:
+          Rules:
+            - ObjectOwnership: ObjectWriter
       NotificationConfiguration:
         LambdaConfigurations:
           - Event: s3:ObjectCreated:Put
@@ -22,7 +27,7 @@ Resources:
     DeletionPolicy: Delete
     Properties:
       BinaryMediaTypes: ["*/*"]
-      Name: "Photo Album Gateway - v1"
+      Name: "Photo Album Gateway -v7"
       Description: "AI Photo Search application, built during the Cloud and Big Data course at Columbia University."
       Body:
         swagger: "2.0"
@@ -64,7 +69,7 @@ Resources:
                     $ref: "#/definitions/Error"
               x-amazon-apigateway-integration:
                 httpMethod: "POST"
-                uri: "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:252549629269:function:search-photos-v1/invocations"
+                uri: "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:007091449980:function:search-photos-v7/invocations"
                 responses:
                   default:
                     statusCode: "200"
@@ -91,7 +96,7 @@ Resources:
                       type: "string"
               x-amazon-apigateway-integration:
                 httpMethod: "POST"
-                uri: "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:252549629269:function:search-photos-v1/invocations"
+                uri: "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:007091449980:function:search-photos-v7/invocations"
                 responses:
                   default:
                     statusCode: "200"
@@ -126,7 +131,7 @@ Resources:
               security:
               - api_key: []
               x-amazon-apigateway-integration:
-                credentials: "arn:aws:iam::252549629269:role/API_S3_Access"
+                credentials: "arn:aws:iam::007091449980:role/lf1-role-v7"
                 httpMethod: "PUT"
                 uri: "arn:aws:apigateway:us-east-1:s3:path/{bucket}/{key}"
                 responses:
@@ -220,6 +225,53 @@ Resources:
         - "image/jpg"
         - "image/png"
 
+  ESInstance:
+    Type: AWS::OpenSearchService::Domain
+    Properties:
+      DomainName: photos-v7
+      ClusterConfig:
+        InstanceType: t3.small.search
+        InstanceCount: 1
+      EBSOptions:
+        EBSEnabled: True
+        VolumeType: gp2
+        VolumeSize: 10
+      AccessPolicies: {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": "*"
+              },
+              "Action": [
+                "es:*",
+                "indices:data/write/bulk*",
+                "indices:data/write/delete",
+                "indices:data/write/index",
+                "indices:data/write/update",
+                "indices:data/rad/search"
+              ],
+              "Resource": "arn:aws:es:us-east-1:007091449980:domain/photos-v7/*"
+              # # "Resource": "arn:aws:es:us-east-1:112295921782:domain/photos-cf/*"
+              # "Resource" : "arn:aws:es:${self:provider.region}:${AWS::AccountId}:domain/photos-cf-7${self:provider.stage}/*"
+
+            }
+          ]
+        }
+      AdvancedSecurityOptions:
+        Enabled: true
+        InternalUserDatabaseEnabled: true
+        MasterUserOptions:
+          MasterUserName: master
+          MasterUserPassword: Master@123
+      NodeToNodeEncryptionOptions:
+        Enabled: true
+      DomainEndpointOptions:
+        EnforceHTTPS: true
+      EncryptionAtRestOptions:
+        Enabled: true
+
   ApiGatewayDeployment:
       Type: "AWS::ApiGateway::Deployment"
       Properties:
@@ -246,68 +298,56 @@ Resources:
               ThrottlingRateLimit: 10000
           TracingEnabled: false
 
-  ESInstance:
-    Type: AWS::OpenSearchService::Domain
+  ClientBucket:
+    Type: AWS::S3::Bucket
     Properties:
-      DomainName: photos-es-v1
-      ClusterConfig:
-        InstanceType: t3.small.search
-        InstanceCount: 1
-      EBSOptions:
-        EBSEnabled: True
-        VolumeType: gp2
-        VolumeSize: 10
-      AccessPolicies: {
-          "Version": "2012-10-17",
-          "Statement": [
-            {
-              "Effect": "Allow",
-              "Principal": {
-                "AWS": "*"
-              },
-              "Action": [
-                "es:*",
-                "indices:data/write/bulk*",
-                "indices:data/write/delete",
-                "indices:data/write/index",
-                "indices:data/write/update",
-                "indices:data/rad/search"
-              ],
-              "Resource": "arn:aws:es:us-east-1:112295921782:domain/photos-es-v1/*"
-            }
-          ]
-        }
+      PublicAccessBlockConfiguration:
+          BlockPublicAcls: false
+      OwnershipControls:
+          Rules:
+            - ObjectOwnership: ObjectWriter
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: index.html
+
+  BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      PolicyDocument:
+        Id: PublicWebsitePolicy
+        Version: 2012-10-17
+        Statement:
+          - Sid: PublicReadForGetBucketObjects
+            Effect: Allow
+            Principal: '*'
+            Action: 's3:GetObject'
+            Resource: !Join
+              - ''
+              - - 'arn:aws:s3:::'
+                - !Ref ClientBucket
+                - /*
+      Bucket: !Ref ClientBucket
 
   AssetsBucketPolicy:
     Type: AWS::S3::BucketPolicy
     Properties:
       PolicyDocument: 
-        {
-        "Version": "2012-10-17",
-        "Statement": [
-          {
-              "Sid": "PublicReadGetObject",
-              "Effect": "Allow",
-              "Principal": "*",
-              "Action": "s3:GetObject",
-              "Resource": "arn:aws:s3:::photos-bucket-v1/*"
-          },
-          {
-              "Sid": "ListObjectsInBucket",
-              "Effect": "Allow",
-              "Principal": "*",
-              "Action": "s3:ListBucket",
-              "Resource": "arn:aws:s3:::photos-bucket-v1"
-          },
-          {
-              "Sid": "AllObjectActions",
-              "Effect": "Allow",
-              "Principal": "*",
-              "Action": "s3:*Object",
-              "Resource": "arn:aws:s3:::photos-bucket-v1/*"
-          }
-        ]
-      }
+        Statement:
+          - Sid: PublicReadGetObject
+            Effect: Allow
+            Principal: '*'
+            Action: 's3:GetObject'
+            Resource: !Sub 'arn:aws:s3:::${S3BucketName}/*'
+          - Sid: ListObjectsInBucket
+            Effect: Allow
+            Principal: '*'
+            Action: 's3:ListBucket'
+            Resource: !Sub 'arn:aws:s3:::${S3BucketName}'
+          - Sid: AllObjectActions
+            Effect: Allow
+            Principal: '*'
+            Action: 's3:*Object'
+            Resource: !Sub 'arn:aws:s3:::${S3BucketName}/*'
       Bucket: !Ref AssetsBucket
 
   MyRoleLambdas1:
@@ -339,7 +379,7 @@ Resources:
               {
                   "Effect": "Allow",
                   "Action": "logs:CreateLogGroup",
-                  "Resource": "arn:aws:logs:us-east-1:112295921782:*"
+                  "Resource": "arn:aws:logs:us-east-1:007091449980:*"
               },
               {
                   "Effect": "Allow",
@@ -348,7 +388,7 @@ Resources:
                       "logs:PutLogEvents"
                   ],
                   "Resource": [
-                      "arn:aws:logs:us-east-1:112295921782:log-group:/aws/lambda/index-photos-v1:*"
+                      "arn:aws:logs:us-east-1:007091449980:log-group:/aws/lambda/index-photos-v7:*"
                   ]
               },
               {
@@ -358,12 +398,41 @@ Resources:
                       "logs:PutLogEvents"
                   ],
                   "Resource": [
-                      "arn:aws:logs:us-east-1:112295921782:log-group:/aws/lambda/index-photos-v1:*"
+                      "arn:aws:logs:us-east-1:007091449980:log-group:/aws/lambda/index-photos-v7:*"
                   ]
+              },
+              {
+                  "Effect": "Allow",
+                  "Action": [
+                    "execute-api:Invoke",
+                    "execute-api:ManageConnections"
+                  ],
+                  "Resource": "arn:aws:execute-api:*:*:*"
+              },
+              {
+                "Effect": "Allow",
+                "Action": [
+                    "logs:PutLogEvents",
+                    "logs:CreateLogGroup",
+                    "logs:CreateLogStream"
+                ],
+                "Resource": "arn:aws:logs:*:*:*"
+              },
+              {
+                  "Effect": "Allow",
+                  "Action": [
+                      "s3:GetObject"
+                  ],
+                  "Resource": "arn:aws:s3:::*/*"
+              },
+              {
+                  "Effect": "Allow",
+                  "Action": "s3:PutBucketPolicy",
+                  "Resource": "arn:aws:s3:::*/*"
               }
           ]
           }
-      RoleName: lf1-role-v1
+      RoleName: a-v7
      
   MyRoleLambdas2:    
     Type: AWS::IAM::Role
@@ -408,8 +477,8 @@ Resources:
                 "Effect": "Allow",
                 "Action": "lex:*",
                 "Resource": [
-                    "arn:aws:lex:us-east-1:112295921782:bot-alias/ZF3N9OLCQF/BRVKTMYOOF",
-                    "arn:aws:lex:us-east-1:112295921782:bot/ZF3N9OLCQF"
+                    "arn:aws:lex:us-east-1:007091449980:bot-alias/F6RULKAMVB/TSTALIASID",
+                    "arn:aws:lex:us-east-1:007091449980:bot/F6RULKAMVB"
                 ]
               },
             ]
@@ -421,7 +490,15 @@ Resources:
                 {
                   "Effect": "Allow",
                   "Action": "logs:CreateLogGroup",
-                  "Resource": "arn:aws:logs:us-east-1:112295921782:*"
+                  "Resource": "arn:aws:logs:us-east-1:007091449980:*"
+              },
+              {
+                  "Effect": "Allow",
+                  "Action": [
+                    "execute-api:Invoke",
+                    "execute-api:ManageConnections"
+                  ],
+                  "Resource": "arn:aws:execute-api:*:*:*"
               },
               {
                 "Effect": "Allow",
@@ -430,7 +507,7 @@ Resources:
                     "logs:PutLogEvents"
                 ],
                 "Resource": [
-                  "arn:aws:logs:us-east-1:112295921782:log-group:/aws/lambda/search-photos-v1:*"
+                  "arn:aws:logs:us-east-1:007091449980:log-group:/aws/lambda/search-photos-v7:*"
                 ]
               },
               {
@@ -440,49 +517,36 @@ Resources:
                     "logs:PutLogEvents"
                 ],
                 "Resource": [
-                  "arn:aws:logs:us-east-1:112295921782:log-group:/aws/lambda/search-photos-v1:*"
+                  "arn:aws:logs:us-east-1:007091449980:log-group:/aws/lambda/search-photos-v7:*"
                 ]
+              },
+              {
+                "Effect": "Allow",
+                "Action": [
+                    "logs:PutLogEvents",
+                    "logs:CreateLogGroup",
+                    "logs:CreateLogStream"
+                ],
+                "Resource": "arn:aws:logs:*:*:*"
               }
             ]
           }     
-      RoleName: lf2-role-v2
-
-  ClientBucket:
-    Type: AWS::S3::Bucket
-    Properties:
-      PublicAccessBlockConfiguration:
-          BlockPublicAcls: false
-      OwnershipControls:
-          Rules:
-            - ObjectOwnership: ObjectWriter
-      WebsiteConfiguration:
-        IndexDocument: index.html
-        ErrorDocument: index.html
-
-  BucketPolicy:
-    Type: AWS::S3::BucketPolicy
-    Properties:
-      PolicyDocument:
-        Id: PublicWebsitePolicy
-        Version: 2012-10-17
-        Statement:
-          - Sid: PublicReadForGetBucketObjects
-            Effect: Allow
-            Principal: '*'
-            Action: 's3:GetObject'
-            Resource: !Join
-              - ''
-              - - 'arn:aws:s3:::'
-                - !Ref ClientBucket
-                - /*
-      Bucket: !Ref ClientBucket
+      RoleName: lf2-role-v7
 
   Lambda1:
     Type: AWS::Lambda::Function
     Properties:
       Code:
-        S3Bucket: myphotoalbumlambdas
-        S3Key: deployment_package1.zip
+        ZipFile: |
+          import json
+          def lambda_handler(event, context):
+              print(json.dumps(event, indent=2))
+              response = {
+                  "statusCode": 200,
+                  "body": json.dumps('Hello again from Lambda!')
+              }
+              return response
+
       Description: Lambda function Index CF
       MemorySize: 128
       Environment:
@@ -492,15 +556,22 @@ Resources:
       Role: !GetAtt [MyRoleLambdas1, Arn]
       Timeout: 30
       Runtime: python3.9
-      FunctionName: index-photos-v1
+      FunctionName: index-photos-v7
 
   Lambda2:
     Type: AWS::Lambda::Function
     Properties:
       Code:
-        S3Bucket: myphotoalbumlambdas
-        S3Key: deployment_package.zip
-      Description: Lambda function Search CF    
+        ZipFile: |
+          import json
+          def lambda_handler(event, context):
+              print(json.dumps(event, indent=2))
+              response = {
+                  "statusCode": 200,
+                  "body": json.dumps('Hello again from Lambda!')
+              }
+              return response
+
       MemorySize: 128
       Environment:
         Variables:
@@ -509,7 +580,7 @@ Resources:
       Role: !GetAtt [MyRoleLambdas2, Arn]
       Timeout: 30
       Runtime: python3.9
-      FunctionName: search-photos-v1
+      FunctionName: search-photos-v7
 
   Lambda1InvokePermission:
     Type: AWS::Lambda::Permission
@@ -523,9 +594,6 @@ Resources:
       Principal: s3.amazonaws.com
       SourceArn:
         Fn::Sub: arn:aws:s3:::${S3BucketName}
-  
-  
-
 
 Outputs:
   WebsiteURL:

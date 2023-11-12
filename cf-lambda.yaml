@@ -3,7 +3,7 @@ AWSTemplateFormatVersion: 2010-09-09
 Parameters:
   S3BucketName:
     Type: String
-    Default: photos-bucket-v1
+    Default: photos-bucket-v3
 
 Resources:
 
@@ -112,7 +112,7 @@ Resources:
                       "logs:PutLogEvents"
                   ],
                   "Resource": [
-                      "arn:aws:logs:us-east-1:112295921782:log-group:/aws/lambda/index-photos-v1:*"
+                      "arn:aws:logs:us-east-1:112295921782:log-group:/aws/lambda/index-photos-v3:*"
                   ]
               },
               {
@@ -122,8 +122,17 @@ Resources:
                       "logs:PutLogEvents"
                   ],
                   "Resource": [
-                      "arn:aws:logs:us-east-1:112295921782:log-group:/aws/lambda/index-photos-v1:*"
+                      "arn:aws:logs:us-east-1:112295921782:log-group:/aws/lambda/index-photos-v3:*"
                   ]
+              },
+              {
+                "Effect": "Allow",
+                "Action": [
+                    "logs:PutLogEvents",
+                    "logs:CreateLogGroup",
+                    "logs:CreateLogStream"
+                ],
+                "Resource": "arn:aws:logs:*:*:*"
               },
               {
                   "Effect": "Allow",
@@ -139,7 +148,7 @@ Resources:
               }
           ]
           }
-      RoleName: lf1-role-v1
+      RoleName: lf1-role-v3
      
   MyRoleLambdas2:    
     Type: AWS::IAM::Role
@@ -206,7 +215,7 @@ Resources:
                     "logs:PutLogEvents"
                 ],
                 "Resource": [
-                  "arn:aws:logs:us-east-1:112295921782:log-group:/aws/lambda/search-photos-v1:*"
+                  "arn:aws:logs:us-east-1:112295921782:log-group:/aws/lambda/search-photos-v3:*"
                 ]
               },
               {
@@ -216,26 +225,36 @@ Resources:
                     "logs:PutLogEvents"
                 ],
                 "Resource": [
-                  "arn:aws:logs:us-east-1:112295921782:log-group:/aws/lambda/search-photos-v1:*"
+                  "arn:aws:logs:us-east-1:112295921782:log-group:/aws/lambda/search-photos-v3:*"
                 ]
+              },
+              {
+                "Effect": "Allow",
+                "Action": [
+                    "logs:PutLogEvents",
+                    "logs:CreateLogGroup",
+                    "logs:CreateLogStream"
+                ],
+                "Resource": "arn:aws:logs:*:*:*"
               }
             ]
           }     
-      RoleName: lf2-role-v2
+      RoleName: lf2-role-v3
 
   Lambda1:
     Type: AWS::Lambda::Function
     Properties:
       Code:
         ZipFile: |
-          exports.handler = function(event){
-              console.log(JSON.stringify(event, null, 2))
-              const response = {
-                  statusCode: 200,
-                  body: JSON.stringify('Hello again from Lambda!')
+          import json
+          def lambda_handler(event, context):
+              print(json.dumps(event, indent=2))
+              response = {
+                  "statusCode": 200,
+                  "body": json.dumps('Hello again from Lambda!')
               }
               return response
-          }
+
       Description: Lambda function Index CF
       MemorySize: 128
       Environment:
@@ -244,22 +263,23 @@ Resources:
       Handler: lambda_function.lambda_handler
       Role: !GetAtt [MyRoleLambdas1, Arn]
       Timeout: 30
-      Runtime: nodejs18.x
-      FunctionName: index-photos-v1
+      Runtime: python3.9
+      FunctionName: index-photos-v3
 
   Lambda2:
     Type: AWS::Lambda::Function
     Properties:
       Code:
         ZipFile: |
-          exports.handler = function(event){
-              console.log(JSON.stringify(event, null, 2))
-              const response = {
-                  statusCode: 200,
-                  body: JSON.stringify('Hello again from Lambda!')
+          import json
+          def lambda_handler(event, context):
+              print(json.dumps(event, indent=2))
+              response = {
+                  "statusCode": 200,
+                  "body": json.dumps('Hello again from Lambda!')
               }
               return response
-          }   
+
       MemorySize: 128
       Environment:
         Variables:
@@ -267,8 +287,8 @@ Resources:
       Handler: lambda_function.lambda_handler
       Role: !GetAtt [MyRoleLambdas2, Arn]
       Timeout: 30
-      Runtime: nodejs18.x
-      FunctionName: search-photos-v1
+      Runtime: python3.9
+      FunctionName: search-photos-v3
 
   Lambda1InvokePermission:
     Type: AWS::Lambda::Permission

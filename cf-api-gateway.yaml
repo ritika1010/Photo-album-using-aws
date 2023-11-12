@@ -3,7 +3,7 @@ AWSTemplateFormatVersion: 2010-09-09
 Parameters:
   S3BucketName:
     Type: String
-    Default: photos-bucket-v5
+    Default: photos-bucket-v10
 
 Resources:
 
@@ -27,7 +27,7 @@ Resources:
     DeletionPolicy: Delete
     Properties:
       BinaryMediaTypes: ["*/*"]
-      Name: "Photo Album Gateway - v1"
+      Name: "Photo Album Gateway -v10"
       Description: "AI Photo Search application, built during the Cloud and Big Data course at Columbia University."
       Body:
         swagger: "2.0"
@@ -69,7 +69,7 @@ Resources:
                     $ref: "#/definitions/Error"
               x-amazon-apigateway-integration:
                 httpMethod: "POST"
-                uri: "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:007091449980:function:search-photos-v5/invocations"
+                uri: "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:007091449980:function:search-photos-v10/invocations"
                 responses:
                   default:
                     statusCode: "200"
@@ -96,7 +96,7 @@ Resources:
                       type: "string"
               x-amazon-apigateway-integration:
                 httpMethod: "POST"
-                uri: "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:007091449980:function:search-photos-v5/invocations"
+                uri: "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:007091449980:function:search-photos-v10/invocations"
                 responses:
                   default:
                     statusCode: "200"
@@ -131,7 +131,6 @@ Resources:
               security:
               - api_key: []
               x-amazon-apigateway-integration:
-                credentials: "arn:aws:iam::007091449980:role/lf1-role-v5"
                 httpMethod: "PUT"
                 uri: "arn:aws:apigateway:us-east-1:s3:path/{bucket}/{key}"
                 responses:
@@ -224,6 +223,53 @@ Resources:
         - "image/jpeg"
         - "image/jpg"
         - "image/png"
+
+  ESInstance:
+    Type: AWS::OpenSearchService::Domain
+    Properties:
+      DomainName: photos-v10
+      ClusterConfig:
+        InstanceType: t3.small.search
+        InstanceCount: 1
+      EBSOptions:
+        EBSEnabled: True
+        VolumeType: gp2
+        VolumeSize: 10
+      AccessPolicies: {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": "*"
+              },
+              "Action": [
+                "es:*",
+                "indices:data/write/bulk*",
+                "indices:data/write/delete",
+                "indices:data/write/index",
+                "indices:data/write/update",
+                "indices:data/rad/search"
+              ],
+              "Resource": "arn:aws:es:us-east-1:007091449980:domain/photos-v10/*"
+              # # "Resource": "arn:aws:es:us-east-1:112295921782:domain/photos-cf/*"
+              # "Resource" : "arn:aws:es:${self:provider.region}:${AWS::AccountId}:domain/photos-cf-7${self:provider.stage}/*"
+
+            }
+          ]
+        }
+      AdvancedSecurityOptions:
+        Enabled: true
+        InternalUserDatabaseEnabled: true
+        MasterUserOptions:
+          MasterUserName: master
+          MasterUserPassword: Master@123
+      NodeToNodeEncryptionOptions:
+        Enabled: true
+      DomainEndpointOptions:
+        EnforceHTTPS: true
+      EncryptionAtRestOptions:
+        Enabled: true
 
   ApiGatewayDeployment:
       Type: "AWS::ApiGateway::Deployment"
@@ -321,7 +367,8 @@ Resources:
       ManagedPolicyArns: [
                 "arn:aws:iam::aws:policy/AmazonS3FullAccess",
                 "arn:aws:iam::aws:policy/AmazonRekognitionFullAccess",
-                "arn:aws:iam::aws:policy/AmazonOpenSearchServiceFullAccess"
+                "arn:aws:iam::aws:policy/AmazonOpenSearchServiceFullAccess",
+                "arn:aws:iam::aws:policy/AmazonAPIGatewayInvokeFullAccess"
             ]
       Path: "/"
       Policies: 
@@ -341,7 +388,7 @@ Resources:
                       "logs:PutLogEvents"
                   ],
                   "Resource": [
-                      "arn:aws:logs:us-east-1:007091449980:log-group:/aws/lambda/index-photos-v5:*"
+                      "arn:aws:logs:us-east-1:007091449980:log-group:/aws/lambda/index-photos-v10:*"
                   ]
               },
               {
@@ -351,7 +398,7 @@ Resources:
                       "logs:PutLogEvents"
                   ],
                   "Resource": [
-                      "arn:aws:logs:us-east-1:007091449980:log-group:/aws/lambda/index-photos-v5:*"
+                      "arn:aws:logs:us-east-1:007091449980:log-group:/aws/lambda/index-photos-v10:*"
                   ]
               },
               {
@@ -377,7 +424,7 @@ Resources:
               }
           ]
           }
-      RoleName: a-v5
+      RoleName: lf1-role-v10
      
   MyRoleLambdas2:    
     Type: AWS::IAM::Role
@@ -396,7 +443,8 @@ Resources:
       }
       ManagedPolicyArns: [
                 "arn:aws:iam::aws:policy/AmazonLexFullAccess",
-                "arn:aws:iam::aws:policy/AmazonOpenSearchServiceFullAccess"
+                "arn:aws:iam::aws:policy/AmazonOpenSearchServiceFullAccess",
+                "arn:aws:iam::aws:policy/AmazonAPIGatewayInvokeFullAccess"
             ]
       Path: "/"
       Policies: 
@@ -422,8 +470,8 @@ Resources:
                 "Effect": "Allow",
                 "Action": "lex:*",
                 "Resource": [
-                    "arn:aws:lex:us-east-1:007091449980:bot-alias/ZF3N9OLCQF/BRVKTMYOOF",
-                    "arn:aws:lex:us-east-1:007091449980:bot/ZF3N9OLCQF"
+                    "arn:aws:lex:us-east-1:007091449980:bot-alias/F6RULKAMVB/TSTALIASID",
+                    "arn:aws:lex:us-east-1:007091449980:bot/F6RULKAMVB"
                 ]
               },
             ]
@@ -444,7 +492,7 @@ Resources:
                     "logs:PutLogEvents"
                 ],
                 "Resource": [
-                  "arn:aws:logs:us-east-1:007091449980:log-group:/aws/lambda/search-photos-v5:*"
+                  "arn:aws:logs:us-east-1:007091449980:log-group:/aws/lambda/search-photos-v10:*"
                 ]
               },
               {
@@ -454,7 +502,7 @@ Resources:
                     "logs:PutLogEvents"
                 ],
                 "Resource": [
-                  "arn:aws:logs:us-east-1:007091449980:log-group:/aws/lambda/search-photos-v5:*"
+                  "arn:aws:logs:us-east-1:007091449980:log-group:/aws/lambda/search-photos-v10:*"
                 ]
               },
               {
@@ -468,7 +516,7 @@ Resources:
               }
             ]
           }     
-      RoleName: lf2-role-v5
+      RoleName: lf2-role-v10
 
   Lambda1:
     Type: AWS::Lambda::Function
@@ -493,7 +541,7 @@ Resources:
       Role: !GetAtt [MyRoleLambdas1, Arn]
       Timeout: 30
       Runtime: python3.9
-      FunctionName: index-photos-v5
+      FunctionName: index-photos-v10
 
   Lambda2:
     Type: AWS::Lambda::Function
@@ -517,7 +565,7 @@ Resources:
       Role: !GetAtt [MyRoleLambdas2, Arn]
       Timeout: 30
       Runtime: python3.9
-      FunctionName: search-photos-v5
+      FunctionName: search-photos-v10
 
   Lambda1InvokePermission:
     Type: AWS::Lambda::Permission
@@ -531,6 +579,19 @@ Resources:
       Principal: s3.amazonaws.com
       SourceArn:
         Fn::Sub: arn:aws:s3:::${S3BucketName}
+  
+  ConfigLambdaPermission:
+    Type: "AWS::Lambda::Permission"
+    DependsOn: Lambda1
+    Properties:
+      FunctionName:
+        Fn::GetAtt:
+          - Lambda1
+          - Arn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        Fn::Sub: arn:aws:apigateway:::${RestApiGatewayOfSmartPhotoAlbum}
 
 Outputs:
   WebsiteURL:
